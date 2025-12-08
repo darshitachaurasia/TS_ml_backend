@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # IMPORT CORS
 from pydantic import BaseModel
 import joblib
 import xgboost as xgb
@@ -8,20 +9,42 @@ import pandas as pd
 app = FastAPI()
 
 # ----------------------------
-# LOAD ALL MODELS + ENCODERS
+# 1. ENABLE CORS (Crucial for React connection)
 # ----------------------------
-bst7 = xgb.Booster()
-bst7.load_model("xgb_oilseed_7d.model")
+origins = [
+    "http://localhost:5173", # Vite default
+    "http://localhost:3000", # CRA default
+    "*"                      # Allow all (for development)
+]
 
-bst15 = xgb.Booster()
-bst15.load_model("xgb_oilseed_15d.model")
-
-scaler = joblib.load("scaler.joblib")
-ohe = joblib.load("ohe_state_crop.joblib")
-feature_cols = joblib.load("xgb_feature_cols.joblib")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ----------------------------
-# REQUEST FORMAT
+# 2. LOAD MODELS
+# ----------------------------
+# Ensure these files exist in your root directory
+try:
+    bst7 = xgb.Booster()
+    bst7.load_model("xgb_oilseed_7d.model")
+
+    bst15 = xgb.Booster()
+    bst15.load_model("xgb_oilseed_15d.model")
+
+    scaler = joblib.load("scaler.joblib")
+    ohe = joblib.load("ohe_state_crop.joblib")
+    feature_cols = joblib.load("xgb_feature_cols.joblib")
+    print("✅ Models and artifacts loaded successfully.")
+except Exception as e:
+    print(f"❌ Error loading artifacts: {e}")
+
+# ----------------------------
+# 3. DATA TYPES
 # ----------------------------
 class PredictionRequest(BaseModel):
     state: str
@@ -42,12 +65,11 @@ class PredictionRequest(BaseModel):
     festival_flag: int
     harvest_season_flag: int
 
-
 # ----------------------------
-# BUILD FEATURE ROW
+# 4. PREPROCESSING LOGIC
 # ----------------------------
 def build_feature_vector(req: PredictionRequest):
-    # Convert request → dataframe row
+    # Convert request -> dataframe row
     row = pd.DataFrame([req.dict()])
 
     # Scale numeric columns
@@ -56,9 +78,12 @@ def build_feature_vector(req: PredictionRequest):
         'lag_7','lag_14','lag_30',
         'temperature','humidity','rainfall','day_of_year'
     ]
+    
+    # Check if scaler expects these columns (basic validation)
     row[num_cols] = scaler.transform(row[num_cols])
 
     # One-hot encode state & crop
+    # Note: Ensure 'state' and 'crop' values match exactly what the OHE was trained on
     ohe_cols = ohe.get_feature_names_out(['state','crop'])
     ohe_vals = ohe.transform(row[['state','crop']])
 
@@ -66,27 +91,29 @@ def build_feature_vector(req: PredictionRequest):
 
     row = pd.concat([row.reset_index(drop=True), ohe_df], axis=1)
 
-    # Keep only required feature columns
+    # Reorder columns to match XGBoost training order
     row = row[feature_cols]
 
     return xgb.DMatrix(row)
 
-
 # ----------------------------
-# PREDICT ENDPOINT
+# 5. ENDPOINT
 # ----------------------------
 @app.post("/predict")
 def predict(req: PredictionRequest):
-    x = build_feature_vector(req)
+    try:
+        x = build_feature_vector(req)
 
-    pred7_log = bst7.predict(x)[0]
-    pred15_log = bst15.predict(x)[0]
+        pred7_log = bst7.predict(x)[0]
+        pred15_log = bst15.predict(x)[0]
 
-    # Convert back from log
-    pred7 = float(np.expm1(pred7_log))
-    pred15 = float(np.expm1(pred15_log))
+        # Convert back from log (Inverse Log Transformation)
+        pred7 = float(np.expm1(pred7_log))
+        pred15 = float(np.expm1(pred15_log))
 
-    return {
-        "predicted_7_day_price": round(pred7, 2),
-        "predicted_15_day_price": round(pred15, 2)
-    }
+        return {
+            "predicted_7_day_price": round(pred7, 2),
+            "predicted_15_day_price": round(pred15, 2)
+        }
+    except Exception as e:
+        return {"error": str(e)}
