@@ -1,0 +1,8 @@
+crop_name,date,lag_1,lag_7,lag_15,import_volume_tons,month,day_of_year,crop_castor,crop_groundnut,crop_mustard,crop_niger,crop_sesame,crop_soybean,crop_sunflower
+mustard,2024-11-15,4110.981842377971,4071.174984984702,4049.448703569383,143801,11,320,False,False,True,False,False,False,False
+sesame,2024-11-16,6397.011635669575,6370.533134396877,6302.252892219539,39546,11,321,False,False,False,False,True,False,False
+groundnut,2024-11-16,4703.188468226274,4643.489670892499,4614.895182724736,66256,11,321,False,True,False,False,False,False,False
+sunflower,2024-11-16,5526.909804502793,5497.837503929076,5405.066297243891,114396,11,321,False,False,False,False,False,False,True
+castor,2024-11-18,5380.3955948456005,5282.275955013883,5237.412712114296,35941,11,323,True,False,False,False,False,False,False
+niger,2024-11-19,6077.879626425376,6019.03113599358,5872.51431093624,0,11,324,False,False,False,True,False,False,False
+soybean,2024-11-19,3524.6150525334237,3528.629565390214,3404.657884430468,251664,11,324,False,False,False,False,False,True,False
