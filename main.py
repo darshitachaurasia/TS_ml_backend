@@ -110,6 +110,7 @@ def predict_oil(req: PredictionRequest):
             "predicted_7_day_price": round(pred7, 2),
             "predicted_15_day_price": round(pred15, 2)
         }
+        
     except Exception as e:
         print(f"❌ Oilseed prediction error: {e}")
         raise HTTPException(500, str(e))
@@ -174,7 +175,7 @@ def predict_trade_price(req: PredictRequest):
         "crop": req.crop,
         "predicted_7_day_price": round(pred7, 2),
         "predicted_15_day_price": round(pred15, 2),
-        "unit": "₹ per quintal"
+        "unit": "₹ per quint"
     }
 
 
